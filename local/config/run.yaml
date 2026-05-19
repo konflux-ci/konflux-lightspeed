@@ -1,0 +1,89 @@
+version: 2
+image_name: konflux-lightspeed-local
+apis:
+  - inference
+  - agents
+  - files
+  - safety
+  - tool_runtime
+  - vector_io
+providers:
+  inference:
+    # Default: Google Gemini API (AI Studio key)
+    - provider_id: gemini
+      provider_type: remote::gemini
+      config:
+        api_key: ${env.GEMINI_API_KEY}
+    # Alternative: Google Vertex AI — uncomment and set Vertex AI env vars in .env
+    # - provider_id: google-vertex
+    #   provider_type: remote::vertexai
+    #   config:
+    #     project: ${env.VERTEXAI_PROJECT_ID}
+    #     location: ${env.VERTEX_AI_LOCATION}
+    # Alternative: OpenAI — uncomment and set OPENAI_API_KEY in .env
+    # - provider_id: openai
+    #   provider_type: remote::openai
+    #   config:
+    #     api_key: ${env.OPENAI_API_KEY}
+  agents:
+    - provider_id: meta-reference
+      provider_type: inline::meta-reference
+      config:
+        persistence:
+          agent_state:
+            backend: kv_default
+            namespace: agents
+          responses:
+            backend: sql_default
+            table_name: responses
+  files:
+    - provider_id: localfs
+      provider_type: inline::localfs
+      config:
+        storage_dir: ${env.SQLITE_STORE_DIR}/files
+        metadata_store:
+          table_name: files_metadata
+          backend: sql_default
+  tool_runtime:
+    - provider_id: rag-runtime
+      provider_type: inline::rag-runtime
+      config: {}
+  vector_io:
+    - provider_id: faiss
+      provider_type: inline::faiss
+      config:
+        persistence:
+          namespace: vector_io
+          backend: kv_default
+
+storage:
+  backends:
+    kv_default:
+      type: kv_sqlite
+      db_path: ${env.SQLITE_STORE_DIR}/kv_store.db
+    sql_default:
+      type: sql_sqlite
+      db_path: ${env.SQLITE_STORE_DIR}/sql_store.db
+# Model names must use full SDK-native format for Vertex AI
+# See: https://github.com/meta-llama/llama-stack/pull/5169
+models:
+  - metadata: {}
+    model_id: models/gemini-3.1-flash-lite
+    provider_id: gemini
+    provider_model_id: models/gemini-3.1-flash-lite
+    model_type: llm
+  # When using Vertex AI instead:
+  # - metadata: {}
+  #   model_id: publishers/google/models/gemini-2.5-flash
+  #   provider_id: google-vertex
+  #   provider_model_id: publishers/google/models/gemini-2.5-flash
+  #   model_type: llm
+  # When using OpenAI instead:
+  # - metadata: {}
+  #   model_id: gpt-4o-mini
+  #   provider_id: openai
+  #   provider_model_id: gpt-4o-mini
+  #   model_type: llm
+
+server:
+  port: 8321

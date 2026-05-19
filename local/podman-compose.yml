@@ -1,0 +1,77 @@
+# Local podman-compose deployment for konflux-lightspeed
+#
+# Quick start:
+#   cp ../.env.example ../.env   # edit with your LLM provider credentials
+#   podman-compose up -d
+#   podman-compose ps            # wait for all services to show "healthy"
+#   curl http://localhost:8080/liveness
+#
+# Service dependency chain:
+#   postgres → lightspeed-stack
+
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: konflux-lightspeed-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lightspeed}
+      POSTGRES_USER: ${POSTGRES_USER:-lightspeed}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lightspeed}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - lightspeed-net
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "lightspeed", "-d", "lightspeed"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  lightspeed-stack:
+    image: quay.io/lightspeed-core/lightspeed-stack:dev-latest
+    container_name: konflux-lightspeed-stack
+    env_file: ../.env
+    environment:
+      LIGHTSPEED_STACK_CONFIG_PATH: /app-root/lightspeed-stack.yaml
+      LIGHTSPEED_STACK_LOG_LEVEL: DEBUG
+      # Writable path for llama-stack internal SQLite registry
+      # (workaround for https://github.com/llamastack/llama-stack/issues/4896)
+      SQLITE_STORE_DIR: /tmp/llama-store
+      # PostgreSQL connection — references the postgres service by DNS name
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-lightspeed}
+      POSTGRES_USER: ${POSTGRES_USER:-lightspeed}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lightspeed}
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./config/run.yaml:/app-root/run.yaml:ro,Z
+      - ./config/lightspeed-stack.yaml:/app-root/lightspeed-stack.yaml:ro,Z
+      - ./config/system-prompt.txt:/app-root/system-prompt.txt:ro,Z
+    networks:
+      - lightspeed-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s = socket.create_connection(('127.0.0.1', 8080), timeout=3); s.close()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  lightspeed-net:
+
+volumes:
+  pgdata:
