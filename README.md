@@ -1,5 +1,13 @@
 # konflux-lightspeed
 
+Deployment configuration for the Konflux UI AI Agent backend, powered by [lightspeed-stack](https://github.com/lightspeed-core/lightspeed-stack).
+
+This repository provides configuration templates for deploying the upstream lightspeed-stack container image as the Konflux UI AI Agent backend. It does not contain application code.
+
+## Quick Start
+
+See [Local Development](docs/local-development.md) to run the stack locally with podman-compose.
+
 ## License
 
 Copyright 2026.
