@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lightspeed-stack
+  namespace: konflux-lightspeed
+  labels:
+    app.kubernetes.io/name: lightspeed-stack
+    app.kubernetes.io/part-of: konflux-lightspeed
+spec:
+  type: ClusterIP
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: lightspeed-stack

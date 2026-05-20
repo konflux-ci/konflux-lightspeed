@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lightspeed-stack-config
+  namespace: konflux-lightspeed
+data:
+  lightspeed-stack.yaml: |
+    name: Konflux Lightspeed
+    service:
+      host: "0.0.0.0"
+      port: 8443
+      auth_enabled: true
+      workers: 2
+      color_log: false
+      access_log: true
+      tls_config:
+        tls_certificate_path: /app-root/tls/tls.crt
+        tls_key_path: /app-root/tls/tls.key
+    llama_stack:
+      use_as_library_client: true
+      library_client_config_path: /app-root/run.yaml
+    authentication:
+      module: jwk-token
+      skip_for_health_probes: true
+      skip_for_metrics: true
+      jwk_config:
+        url: PLACEHOLDER_JWKS_URL
+    authorization:
+      access_rules:
+        - role: "*"
+          actions:
+            - query
+            - streaming_query
+            - responses
+            - get_metrics
+            - info
+    conversation_cache:
+      type: postgres
+      postgres:
+        host: PLACEHOLDER_PG_HOST
+        port: "5432"
+        db: PLACEHOLDER_PG_DB
+        user: PLACEHOLDER_PG_USER
+        password: PLACEHOLDER_PG_PASSWORD
+        ssl_mode: require
+    inference:
+      default_model: PLACEHOLDER_DEFAULT_MODEL
+      default_provider: PLACEHOLDER_DEFAULT_PROVIDER
+    customization:
+      system_prompt_path: /app-root/system-prompt.txt
+    user_data_collection:
+      feedback_enabled: true
+      feedback_storage: /tmp/data/feedback
+      transcripts_enabled: true
+      transcripts_storage: /tmp/data/transcripts
