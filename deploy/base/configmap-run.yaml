@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: run-config
+  namespace: konflux-lightspeed
+data:
+  run.yaml: |
+    version: 2
+    image_name: konflux-lightspeed
+    apis:
+      - inference
+      - agents
+      - files
+      - safety
+      - tool_runtime
+      - vector_io
+    providers:
+      inference:
+        - provider_id: PLACEHOLDER_PROVIDER_ID
+          provider_type: PLACEHOLDER_PROVIDER_TYPE
+          config: {}
+      agents:
+        - provider_id: meta-reference
+          provider_type: inline::meta-reference
+          config:
+            persistence:
+              agent_state:
+                backend: kv_default
+                namespace: agents
+              responses:
+                backend: sql_default
+                table_name: responses
+      files:
+        - provider_id: localfs
+          provider_type: inline::localfs
+          config:
+            storage_dir: ${env.SQLITE_STORE_DIR}/files
+            metadata_store:
+              table_name: files_metadata
+              backend: sql_default
+      tool_runtime:
+        - provider_id: rag-runtime
+          provider_type: inline::rag-runtime
+          config: {}
+      vector_io:
+        - provider_id: faiss
+          provider_type: inline::faiss
+          config:
+            persistence:
+              namespace: vector_io
+              backend: kv_default
+    storage:
+      backends:
+        kv_default:
+          type: kv_postgres
+          host: PLACEHOLDER_PG_HOST
+          port: "5432"
+          db: PLACEHOLDER_PG_DB
+          user: PLACEHOLDER_PG_USER
+          password: PLACEHOLDER_PG_PASSWORD
+          table_name: llamastack_kvstore
+        sql_default:
+          type: sql_postgres
+          host: PLACEHOLDER_PG_HOST
+          port: "5432"
+          db: PLACEHOLDER_PG_DB
+          user: PLACEHOLDER_PG_USER
+          password: PLACEHOLDER_PG_PASSWORD
+          table_name: llamastack_sqlstore
+    models:
+      - metadata: {}
+        model_id: PLACEHOLDER_MODEL_ID
+        provider_id: PLACEHOLDER_PROVIDER_ID
+        provider_model_id: PLACEHOLDER_MODEL_ID
+        model_type: llm
+    server:
+      port: 8321

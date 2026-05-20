@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lightspeed-stack
+  namespace: konflux-lightspeed
+  labels:
+    app.kubernetes.io/name: lightspeed-stack
+    app.kubernetes.io/part-of: konflux-lightspeed
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lightspeed-stack
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lightspeed-stack
+        app.kubernetes.io/part-of: konflux-lightspeed
+    spec:
+      serviceAccountName: lightspeed-stack
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: lightspeed-stack
+      containers:
+        - name: lightspeed-stack
+          image: quay.io/lightspeed-core/lightspeed-stack:latest
+          ports:
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+          env:
+            - name: LIGHTSPEED_STACK_CONFIG_PATH
+              value: /app-root/lightspeed-stack.yaml
+            - name: SQLITE_STORE_DIR
+              value: /tmp/llama-store
+          envFrom: []
+          resources:
+            requests:
+              cpu: "1"
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: lightspeed-stack-config
+              mountPath: /app-root/lightspeed-stack.yaml
+              subPath: lightspeed-stack.yaml
+              readOnly: true
+            - name: run-config
+              mountPath: /app-root/run.yaml
+              subPath: run.yaml
+              readOnly: true
+            - name: system-prompt
+              mountPath: /app-root/system-prompt.txt
+              subPath: system-prompt.txt
+              readOnly: true
+            - name: tls-certs
+              mountPath: /app-root/tls
+              readOnly: true
+            - name: llm-credentials
+              mountPath: /app-root/secrets
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: lightspeed-stack-config
+          configMap:
+            name: lightspeed-stack-config
+        - name: run-config
+          configMap:
+            name: run-config
+        - name: system-prompt
+          configMap:
+            name: system-prompt
+        - name: tls-certs
+          secret:
+            secretName: lightspeed-tls
+        - name: llm-credentials
+          secret:
+            secretName: llm-provider-credentials
+        - name: tmp
+          emptyDir: {}
