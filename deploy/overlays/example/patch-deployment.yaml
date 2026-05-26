@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lightspeed-stack
+  namespace: konflux-lightspeed
+spec:
+  template:
+    spec:
+      containers:
+        - name: lightspeed-stack
+          env:
+            - name: LIGHTSPEED_STACK_CONFIG_PATH
+              value: /app-root/lightspeed-stack.yaml
+            - name: SQLITE_STORE_DIR
+              value: /tmp/llama-store
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lightspeed-postgres
+                  key: password
+            - name: VERTEXAI_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: llm-provider-credentials
+                  key: vertexai-project-id
+            - name: VERTEX_AI_LOCATION
+              valueFrom:
+                secretKeyRef:
+                  name: llm-provider-credentials
+                  key: vertex-ai-location
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /app-root/secrets/credentials.json
