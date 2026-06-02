@@ -2,11 +2,28 @@
 
 Deployment configuration for the Konflux UI AI Agent backend, powered by [lightspeed-stack](https://github.com/lightspeed-core/lightspeed-stack).
 
-This repository provides configuration templates for deploying the upstream lightspeed-stack container image as the Konflux UI AI Agent backend. It does not contain application code.
+This repository provides base Kustomize manifests and configuration templates that can be customized for any Konflux installation. It does not contain application code — it configures and deploys the upstream lightspeed-stack container image.
+
+## Repository Layout
+
+| Directory | Description |
+|-----------|-------------|
+| `deploy/base/` | Base Kustomize manifests (Deployment, Service, ConfigMaps) |
+| `deploy/overlays/example/` | Example overlay showing how to customize for a real deployment |
+| `local/` | Local development setup using podman-compose |
+| `docs/` | Documentation |
 
 ## Quick Start
 
-See [Local Development](docs/local-development.md) to run the stack locally with podman-compose.
+See [Local Development](docs/local-development.md) to run the stack locally, or [Deployment Guide](docs/deployment-guide.md) to deploy to a Kubernetes/OpenShift cluster.
+
+## How It Works
+
+The lightspeed-stack service is fully config-driven. This repository provides:
+
+- **Configuration templates** for authentication (JWK), conversation persistence (PostgreSQL), LLM provider selection, and a Konflux-specific system prompt.
+- **Kustomize base manifests** that deployers reference and customize via overlays. See `deploy/overlays/example/` for a complete example.
+- **Local development setup** with noop authentication for rapid iteration.
 
 ## License
 
