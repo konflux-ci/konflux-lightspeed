@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lightspeed-stack-config
+  namespace: konflux-lightspeed
+data:
+  lightspeed-stack.yaml: |
+    name: Konflux Lightspeed (kind)
+    service:
+      host: "0.0.0.0"
+      port: 8080
+      auth_enabled: false
+      workers: 1
+      color_log: true
+      access_log: true
+    llama_stack:
+      use_as_library_client: true
+      library_client_config_path: /app-root/run.yaml
+    authentication:
+      module: noop
+      skip_for_health_probes: true
+      skip_for_metrics: true
+    authorization:
+      access_rules:
+        - role: "*"
+          actions:
+            - query
+            - streaming_query
+            - responses
+            - get_metrics
+            - info
+    conversation_cache:
+      type: postgres
+      postgres:
+        host: ${env.POSTGRES_HOST}
+        port: "${env.POSTGRES_PORT}"
+        db: ${env.POSTGRES_DB}
+        user: ${env.POSTGRES_USER}
+        password: ${env.POSTGRES_PASSWORD}
+        ssl_mode: disable
+        gss_encmode: disable
+    inference:
+      default_model: models/gemini-3.1-flash-lite
+      default_provider: gemini
+    customization:
+      system_prompt_path: /app-root/system-prompt.txt
+    user_data_collection:
+      feedback_enabled: false
+      transcripts_enabled: false
+    deployment_environment: development
