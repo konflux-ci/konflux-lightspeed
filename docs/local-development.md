@@ -146,3 +146,74 @@ podman-compose logs -f lightspeed-stack
 podman-compose down       # stop services, keep data
 podman-compose down -v    # stop services and delete volumes
 ```
+
+---
+
+## Deploying to a Kind Cluster
+
+Deploy konflux-lightspeed into a local Konflux kind instance for integration testing with the Konflux UI.
+
+### Prerequisites
+
+- A running Konflux kind cluster (via [konflux-ci](https://github.com/konflux-ci/konflux-ci) `./scripts/deploy-local.sh`)
+- `kubectl`, `kustomize`, and `kind` installed
+- LLM provider credentials (Gemini API key, Vertex AI, or OpenAI)
+
+### Deploy
+
+```bash
+# Gemini API (default)
+export GEMINI_API_KEY=your-gemini-api-key-here
+./scripts/deploy-to-kind.sh
+
+# Or Vertex AI
+export VERTEXAI_PROJECT_ID=your-gcp-project-id
+export VERTEX_AI_LOCATION=us-central1
+export GCP_CREDENTIALS_PATH=/path/to/google-credentials.json
+./scripts/deploy-to-kind.sh
+
+# Or OpenAI
+export OPENAI_API_KEY=sk-...
+./scripts/deploy-to-kind.sh
+```
+
+### Verify
+
+```bash
+kubectl --context kind-konflux get pods -n konflux-lightspeed
+```
+
+In one terminal, run the port-forward:
+
+```bash
+kubectl --context kind-konflux port-forward -n konflux-lightspeed svc/lightspeed-stack 8080:8080
+```
+
+Then in another terminal:
+
+```bash
+curl http://localhost:8080/liveness
+curl http://localhost:8080/readiness
+curl -s -X POST http://localhost:8080/v1/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is Konflux?"}' | python3 -m json.tool
+```
+
+### Connecting the Konflux UI
+
+For webpack dev mode, add a proxy entry in `webpack.dev.config.js`:
+
+```javascript
+{
+  context: (path) => path.includes('/api/lightspeed/'),
+  target: 'http://localhost:8080',
+}
+```
+
+This requires a `kubectl port-forward` running (see Verify above).
+
+### Remove
+
+```bash
+./scripts/undeploy-from-kind.sh
+```
