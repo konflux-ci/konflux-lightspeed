@@ -1,0 +1,49 @@
+name: Validate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'deploy/**'
+      - 'scripts/**'
+      - 'local/**'
+      - 'hack/**'
+      - '.github/workflows/**'
+      - 'Makefile'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        env:
+          KUSTOMIZE_VERSION: v5.7.1
+          KUBECONFORM_VERSION: v0.6.7
+          YQ_VERSION: v4.44.6
+        run: |
+          TMPDIR="$(mktemp -d)"
+
+          curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" -o "$TMPDIR/kustomize.tar.gz"
+          curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/checksums.txt" | grep linux_amd64 | sed "s|kustomize_.*|$TMPDIR/kustomize.tar.gz|" | sha256sum -c
+          tar xz -C /usr/local/bin -f "$TMPDIR/kustomize.tar.gz"
+
+          curl -sL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" -o "$TMPDIR/kubeconform.tar.gz"
+          curl -sL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/CHECKSUMS" | grep linux-amd64 | sed "s|kubeconform.*|$TMPDIR/kubeconform.tar.gz|" | sha256sum -c
+          tar xz -C /usr/local/bin -f "$TMPDIR/kubeconform.tar.gz"
+
+          curl -sL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" -o "$TMPDIR/yq"
+          curl -sL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/checksums-bsd" | grep "SHA256.*yq_linux_amd64)" | awk '{print $NF "  " "'"$TMPDIR/yq"'"}' | sha256sum -c
+          install -m 755 "$TMPDIR/yq" /usr/local/bin/yq
+
+          rm -rf "$TMPDIR"
+
+      - name: Validate manifests
+        run: make validate-manifests
+
+      - name: Lint scripts
+        run: make validate-scripts
+
+      - name: Validate configs
+        run: make validate-config
