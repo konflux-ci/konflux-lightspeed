@@ -10,6 +10,9 @@ This repository provides base Kustomize manifests and configuration templates th
 |-----------|-------------|
 | `deploy/base/` | Base Kustomize manifests (Deployment, Service, ConfigMaps) |
 | `deploy/overlays/example/` | Example overlay showing how to customize for a real deployment |
+| `deploy/overlays/kind/` | Overlay for local kind cluster deployment |
+| `scripts/` | Deployment and cleanup scripts for kind clusters |
+| `hack/` | Validation scripts used by CI and `make validate` |
 | `local/` | Local development setup using podman-compose |
 | `docs/` | Documentation |
 
@@ -24,6 +27,19 @@ The lightspeed-stack service is fully config-driven. This repository provides:
 - **Configuration templates** for authentication (JWK), conversation persistence (PostgreSQL), LLM provider selection, and a Konflux-specific system prompt.
 - **Kustomize base manifests** that deployers reference and customize via overlays. See `deploy/overlays/example/` for a complete example.
 - **Local development setup** with noop authentication for rapid iteration.
+
+## Validation
+
+Run `make validate` to check manifests, scripts, and configs locally. The same checks run in CI on PRs that change deployment, script, or workflow files.
+
+```bash
+make validate              # run all checks
+make validate-manifests    # kustomize build + kubeconform on all overlays
+make validate-scripts      # shellcheck on all shell scripts
+make validate-config       # required fields in lightspeed-stack.yaml configs
+```
+
+Required tools: [kustomize](https://kubectl.docs.kubernetes.io/installation/kustomize/), [kubeconform](https://github.com/yannh/kubeconform), [shellcheck](https://www.shellcheck.net/), [yq](https://github.com/mikefarah/yq/).
 
 ## License
 
