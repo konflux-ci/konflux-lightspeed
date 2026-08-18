@@ -59,13 +59,15 @@ Llama Stack configuration. Controls the LLM provider, storage backends, and mode
 
 ### Required APIs
 
-All six APIs must be enabled for lightspeed-stack to function:
+All APIs below must be enabled for lightspeed-stack to function:
 
 ```yaml
 apis:
-  - inference
   - agents
+  - conversations
   - files
+  - file_processors
+  - inference
   - safety
   - tool_runtime
   - vector_io
@@ -125,7 +127,7 @@ providers:
             namespace: agents
           responses:
             backend: sql_default
-            table_name: responses
+            table_name: agents_responses
   files:
     - provider_id: localfs
       provider_type: inline::localfs
@@ -134,7 +136,16 @@ providers:
         metadata_store:
           table_name: files_metadata
           backend: sql_default
+  file_processors:
+    - provider_id: pypdf
+      provider_type: inline::pypdf
+      config:
+        default_chunk_size_tokens: 800
+        default_chunk_overlap_tokens: 400
   tool_runtime:
+    - provider_id: model-context-protocol
+      provider_type: remote::model-context-protocol
+      config: {}
     - provider_id: rag-runtime
       provider_type: inline::rag-runtime
       config: {}
@@ -143,7 +154,7 @@ providers:
       provider_type: inline::faiss
       config:
         persistence:
-          namespace: vector_io
+          namespace: vector_io::faiss
           backend: kv_default
 ```
 
@@ -170,28 +181,50 @@ storage:
       user: <user>
       password: <password>
       table_name: llamastack_sqlstore
+  stores:
+    metadata:
+      namespace: registry
+      backend: kv_default
+    inference:
+      table_name: inference_store
+      backend: sql_default
+      max_write_queue_size: 10000
+      num_writers: 4
+    conversations:
+      table_name: openai_conversations
+      backend: sql_default
+    prompts:
+      namespace: prompts
+      backend: kv_default
+    connectors:
+      namespace: connectors
+      backend: kv_default
 ```
 
 ### Model Registration
 
-Model IDs must use the full SDK-native format for the provider (see [llama-stack#5169](https://github.com/meta-llama/llama-stack/pull/5169)):
+Models are registered under `registered_resources.models`. Model IDs must use the full SDK-native format for the provider (see [llama-stack#5169](https://github.com/meta-llama/llama-stack/pull/5169)):
 
 ```yaml
 # Gemini API
-models:
-  - metadata: {}
-    model_id: models/gemini-3.1-flash-lite
-    provider_id: gemini
-    provider_model_id: models/gemini-3.1-flash-lite
-    model_type: llm
+registered_resources:
+  models:
+    - metadata: {}
+      model_id: models/gemini-3.1-flash-lite
+      provider_id: gemini
+      provider_model_id: models/gemini-3.1-flash-lite
+      model_type: llm
+  vector_stores: []
 
 # Vertex AI
-models:
-  - metadata: {}
-    model_id: publishers/google/models/gemini-3.1-flash-lite
-    provider_id: google-vertex
-    provider_model_id: publishers/google/models/gemini-3.1-flash-lite
-    model_type: llm
+registered_resources:
+  models:
+    - metadata: {}
+      model_id: publishers/google/models/gemini-3.1-flash-lite
+      provider_id: google-vertex
+      provider_model_id: publishers/google/models/gemini-3.1-flash-lite
+      model_type: llm
+  vector_stores: []
 ```
 
 ## system-prompt.txt

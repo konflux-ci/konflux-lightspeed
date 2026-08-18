@@ -27,7 +27,8 @@ spec:
               app.kubernetes.io/name: lightspeed-stack
       containers:
         - name: lightspeed-stack
-          image: quay.io/lightspeed-core/lightspeed-stack:latest
+          # lightspeed-stack 0.6.2
+          image: quay.io/lightspeed-core/lightspeed-stack@sha256:1317d65e10c34183de36144a8c9effc81a28aacae62f5ba6be448b60ff6cc10d
           ports:
             - name: https
               containerPort: 8443

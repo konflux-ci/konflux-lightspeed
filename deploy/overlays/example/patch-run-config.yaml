@@ -6,11 +6,14 @@ metadata:
 data:
   run.yaml: |
     version: 2
-    image_name: konflux-lightspeed
+    distro_name: konflux-lightspeed
+    external_providers_dir: ${env.EXTERNAL_PROVIDERS_DIR:=~/.llama/providers.d}
     apis:
-      - inference
       - agents
+      - conversations
       - files
+      - file_processors
+      - inference
       - safety
       - tool_runtime
       - vector_io
@@ -31,16 +34,25 @@ data:
                 namespace: agents
               responses:
                 backend: sql_default
-                table_name: responses
+                table_name: agents_responses
       files:
         - provider_id: localfs
           provider_type: inline::localfs
           config:
-            storage_dir: ${env.SQLITE_STORE_DIR}/files
+            storage_dir: ${env.SQLITE_STORE_DIR:=~/.llama/storage}/files
             metadata_store:
               table_name: files_metadata
               backend: sql_default
+      file_processors:
+        - provider_id: pypdf
+          provider_type: inline::pypdf
+          config:
+            default_chunk_size_tokens: 800
+            default_chunk_overlap_tokens: 400
       tool_runtime:
+        - provider_id: model-context-protocol
+          provider_type: remote::model-context-protocol
+          config: {}
         - provider_id: rag-runtime
           provider_type: inline::rag-runtime
           config: {}
@@ -49,7 +61,7 @@ data:
           provider_type: inline::faiss
           config:
             persistence:
-              namespace: vector_io
+              namespace: vector_io::faiss
               backend: kv_default
     storage:
       backends:
@@ -69,11 +81,31 @@ data:
           user: lightspeed
           password: ${env.POSTGRES_PASSWORD}
           table_name: llamastack_sqlstore
-    models:
-      - metadata: {}
-        model_id: publishers/google/models/gemini-3.1-flash-lite
-        provider_id: google-vertex
-        provider_model_id: publishers/google/models/gemini-3.1-flash-lite
-        model_type: llm
+      stores:
+        metadata:
+          namespace: registry
+          backend: kv_default
+        inference:
+          table_name: inference_store
+          backend: sql_default
+          max_write_queue_size: 10000
+          num_writers: 4
+        conversations:
+          table_name: openai_conversations
+          backend: sql_default
+        prompts:
+          namespace: prompts
+          backend: kv_default
+        connectors:
+          namespace: connectors
+          backend: kv_default
+    registered_resources:
+      models:
+        - metadata: {}
+          model_id: publishers/google/models/gemini-3.1-flash-lite
+          provider_id: google-vertex
+          provider_model_id: publishers/google/models/gemini-3.1-flash-lite
+          model_type: llm
+      vector_stores: []
     server:
       port: 8321
