@@ -53,6 +53,16 @@ Main service configuration. Full schema documentation: [lightspeed-stack config 
 |-------|-------------|
 | `system_prompt_path` | Path to the system prompt text file |
 
+#### mcp_servers
+
+Registers external [MCP](https://modelcontextprotocol.io/) servers whose tools the model can call. The local stack registers KOD for documentation RAG.
+
+| Field | Description |
+|-------|-------------|
+| `name` | MCP server name |
+| `provider_id` | Tool runtime provider (`model-context-protocol`) |
+| `url` | MCP endpoint URL (e.g., `http://kod:8000/mcp`) |
+
 ## run.yaml
 
 Llama Stack configuration. Controls the LLM provider, storage backends, and model registration.
@@ -75,7 +85,20 @@ apis:
 
 ### Inference Providers
 
-#### Gemini API (default for local development)
+#### OpenAI (default for local development)
+
+```yaml
+providers:
+  inference:
+    - provider_id: openai
+      provider_type: remote::openai
+      config:
+        api_key: ${env.OPENAI_API_KEY}
+```
+
+Get an API key from [OpenAI](https://platform.openai.com/api-keys). Example model ID: `gpt-4o-mini`.
+
+#### Gemini API
 
 ```yaml
 providers:
@@ -87,6 +110,8 @@ providers:
 ```
 
 Get an API key from [Google AI Studio](https://aistudio.google.com/apikey). Model IDs use the `models/` prefix (e.g., `models/gemini-3.1-flash-lite`).
+
+> **Note:** the Gemini API provider drops Gemini 3 `thought_signature` values and returns HTTP 400 on tool replay, so tool-calling/RAG (KOD) does not work on it. Use OpenAI or Vertex AI (lightspeed-stack 0.7+) for RAG.
 
 #### Vertex AI
 
@@ -100,18 +125,7 @@ providers:
         location: ${env.VERTEX_AI_LOCATION}
 ```
 
-Requires a GCP service account with `roles/aiplatform.user` and `GOOGLE_APPLICATION_CREDENTIALS` pointing to the service account JSON. Model IDs use the `publishers/google/models/` prefix (e.g., `publishers/google/models/gemini-3.1-flash-lite`).
-
-#### OpenAI
-
-```yaml
-providers:
-  inference:
-    - provider_id: openai
-      provider_type: remote::openai
-      config:
-        api_key: ${env.OPENAI_API_KEY}
-```
+Requires a GCP service account with `roles/aiplatform.user` and `GOOGLE_APPLICATION_CREDENTIALS` pointing to the service account JSON. Model IDs use the `publishers/google/models/` prefix (e.g., `publishers/google/models/gemini-3.1-flash-lite`). **RAG (tool calling) on Vertex requires lightspeed-stack 0.7+**: on 0.6.x (including the 0.6.2 image pinned for local dev), Gemini 3 `thought_signature` values are dropped and tool replay returns HTTP 400, so KOD-backed queries fail. Fixed upstream in 0.7 (OGX-based).
 
 ### Other Required Providers
 
@@ -206,6 +220,16 @@ storage:
 Models are registered under `registered_resources.models`. Model IDs must use the full SDK-native format for the provider (see [llama-stack#5169](https://github.com/meta-llama/llama-stack/pull/5169)):
 
 ```yaml
+# OpenAI (default for local development)
+registered_resources:
+  models:
+    - metadata: {}
+      model_id: gpt-4o-mini
+      provider_id: openai
+      provider_model_id: gpt-4o-mini
+      model_type: llm
+  vector_stores: []
+
 # Gemini API
 registered_resources:
   models:
