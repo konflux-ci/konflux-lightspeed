@@ -33,8 +33,13 @@ conversation_cache:
     ssl_mode: disable
     gss_encmode: disable
 inference:
-  default_model: models/gemini-3.1-flash-lite
-  default_provider: gemini
+  default_model: gpt-4o-mini
+  default_provider: openai
+mcp_servers:
+  # KOD MCP server (search_knowledge, get_document). Reachable by compose DNS name.
+  - name: kod
+    provider_id: model-context-protocol
+    url: http://kod:8000/mcp
 customization:
   system_prompt_path: /app-root/system-prompt.txt
 user_data_collection:

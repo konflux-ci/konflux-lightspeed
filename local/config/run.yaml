@@ -12,22 +12,27 @@ apis:
   - vector_io
 providers:
   inference:
-    # Default: Google Gemini API (AI Studio key)
-    - provider_id: gemini
-      provider_type: remote::gemini
+    # OpenAI — active for the local KOD RAG test. Sidesteps the Gemini 3
+    # thought_signature defect entirely (remote::gemini drops it via Google's
+    # OpenAI-compat endpoint; remote::vertexai hit it too on llama-stack 0.6.0).
+    # Fixed upstream in lightspeed-stack 0.7 (OGX-based); revert to Vertex then.
+    - provider_id: openai
+      provider_type: remote::openai
       config:
-        api_key: ${env.GEMINI_API_KEY}
-    # Alternative: Google Vertex AI — uncomment and set Vertex AI env vars in .env
+        api_key: ${env.OPENAI_API_KEY}
+    # Alternative: Google Vertex AI (production path). Needs GCP roles/aiplatform.user.
+    # On lightspeed-stack 0.7+ this works out of the box; on 0.6.x it also needs a
+    # local converter override for the Gemini 3 thought_signature round-trip.
     # - provider_id: google-vertex
     #   provider_type: remote::vertexai
     #   config:
     #     project: ${env.VERTEXAI_PROJECT_ID}
     #     location: ${env.VERTEX_AI_LOCATION}
-    # Alternative: OpenAI — uncomment and set OPENAI_API_KEY in .env
-    # - provider_id: openai
-    #   provider_type: remote::openai
+    # Alternative: Google Gemini API (AI Studio key) — no tool-calling (see above)
+    # - provider_id: gemini
+    #   provider_type: remote::gemini
     #   config:
-    #     api_key: ${env.OPENAI_API_KEY}
+    #     api_key: ${env.GEMINI_API_KEY}
   agents:
     - provider_id: meta-reference
       provider_type: inline::meta-reference
@@ -99,21 +104,21 @@ storage:
 registered_resources:
   models:
     - metadata: {}
-      model_id: models/gemini-3.1-flash-lite
-      provider_id: gemini
-      provider_model_id: models/gemini-3.1-flash-lite
+      model_id: gpt-4o-mini
+      provider_id: openai
+      provider_model_id: gpt-4o-mini
       model_type: llm
     # When using Vertex AI instead:
     # - metadata: {}
-    #   model_id: publishers/google/models/gemini-2.5-flash
+    #   model_id: publishers/google/models/gemini-3.1-flash-lite
     #   provider_id: google-vertex
-    #   provider_model_id: publishers/google/models/gemini-2.5-flash
+    #   provider_model_id: publishers/google/models/gemini-3.1-flash-lite
     #   model_type: llm
-    # When using OpenAI instead:
+    # When using the Gemini API instead:
     # - metadata: {}
-    #   model_id: gpt-4o-mini
-    #   provider_id: openai
-    #   provider_model_id: gpt-4o-mini
+    #   model_id: models/gemini-3.1-flash-lite
+    #   provider_id: gemini
+    #   provider_model_id: models/gemini-3.1-flash-lite
     #   model_type: llm
   vector_stores: []
 

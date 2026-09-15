@@ -5,8 +5,8 @@ Run the Konflux Lightspeed backend locally using podman-compose.
 ## Prerequisites
 
 - [podman](https://podman.io/getting-started/installation) and [podman-compose](https://github.com/containers/podman-compose)
-- A Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey) (default)
-- Alternatively, a Vertex AI service account or OpenAI API key
+- An OpenAI API key from [OpenAI](https://platform.openai.com/api-keys) (default)
+- Alternatively, a Gemini API key or a Vertex AI service account
 
 ## Quick Start
 
@@ -18,10 +18,10 @@ Run the Konflux Lightspeed backend locally using podman-compose.
    cp .env.example .env
    ```
 
-2. Edit `.env` with your Gemini API key:
+2. Edit `.env` with your OpenAI API key:
 
    ```bash
-   GEMINI_API_KEY=your-gemini-api-key-here
+   OPENAI_API_KEY=sk-your-key-here
    ```
 
 3. Start the services:
@@ -52,6 +52,7 @@ Run the Konflux Lightspeed backend locally using podman-compose.
 | Service | Port | Description |
 |---------|------|-------------|
 | `postgres` | 5432 | PostgreSQL for conversation persistence and Llama Stack storage |
+| `kod` | 8000 | KOD (Konflux Offline Documentation) MCP server — serves `search_knowledge` and `get_document` for RAG |
 | `lightspeed-stack` | 8080 | Lightspeed-stack API server with embedded Llama Stack (library mode) |
 
 ## Configuration Files
@@ -68,9 +69,15 @@ Changes to these files take effect after restarting lightspeed-stack:
 podman-compose restart lightspeed-stack
 ```
 
-## Using Vertex AI Instead of Gemini API
+## Using Vertex AI Instead of OpenAI
 
 Vertex AI requires a GCP service account with `roles/aiplatform.user`.
+
+> **Note:** RAG (tool calling) on Vertex requires lightspeed-stack **0.7+**. The
+> image pinned in `local/podman-compose.yml` is 0.6.2, which drops the Gemini 3
+> `thought_signature` and returns HTTP 400 on tool replay — so KOD-backed queries
+> will fail on this stack. Use the default OpenAI provider for RAG; switch to Vertex
+> only for non-RAG testing, or once the pinned image is on 0.7 (OGX-based).
 
 1. Create a service account and download a key:
 
@@ -86,39 +93,43 @@ Vertex AI requires a GCP service account with `roles/aiplatform.user`.
      --iam-account=konflux-lightspeed@YOUR_PROJECT_ID.iam.gserviceaccount.com
    ```
 
-2. In `.env`, set the Vertex AI vars and comment out `GEMINI_API_KEY`.
+2. In `.env`, set the Vertex AI vars and comment out `OPENAI_API_KEY`.
 
 3. In `local/config/run.yaml`:
-   - Comment out the `gemini` provider block
+   - Comment out the `openai` provider block
    - Uncomment the `google-vertex` provider block and its model entry
 
 4. In `local/config/lightspeed-stack.yaml`, update:
    ```yaml
    inference:
-     default_model: publishers/google/models/gemini-2.5-flash
+     default_model: publishers/google/models/gemini-3.1-flash-lite
      default_provider: google-vertex
    ```
 
-5. Add a volume mount to `local/podman-compose.yml` under `lightspeed-stack.volumes`:
-   ```yaml
-   - ${GCP_CREDENTIALS_PATH}:/etc/gcp/credentials.json:ro,Z
-   ```
+5. In `local/podman-compose.yml` under `lightspeed-stack`, uncomment the
+   `GOOGLE_APPLICATION_CREDENTIALS` env var and the Vertex AI service-account
+   volume mount.
 
 6. Restart: `podman-compose restart lightspeed-stack`
 
-## Using OpenAI Instead of Gemini API
+## Using the Gemini API Instead of OpenAI
 
-1. In `.env`, uncomment `OPENAI_API_KEY` and set your key.
+> **Note:** the Gemini API provider (`remote::gemini`) routes tool calls through
+> Google's OpenAI-compatibility endpoint, which drops Gemini 3 `thought_signature`
+> values and returns HTTP 400 on tool replay. Tool-backed queries (KOD RAG) will
+> fail — use OpenAI, or Vertex AI on lightspeed-stack 0.7+, for RAG.
+
+1. In `.env`, uncomment `GEMINI_API_KEY` and set your key.
 
 2. In `local/config/run.yaml`:
-   - Comment out the `gemini` provider block
-   - Uncomment the `openai` provider block and its model entry
+   - Comment out the `openai` provider block
+   - Uncomment the `gemini` provider block and its model entry
 
 3. In `local/config/lightspeed-stack.yaml`, update:
    ```yaml
    inference:
-     default_model: gpt-4o-mini
-     default_provider: openai
+     default_model: models/gemini-3.1-flash-lite
+     default_provider: gemini
    ```
 
 4. Restart: `podman-compose restart lightspeed-stack`
