@@ -6,10 +6,14 @@
 #   - A running Konflux kind cluster (via konflux-ci/scripts/deploy-local.sh)
 #   - kubectl configured to use the kind cluster context
 #   - kustomize installed
-#   - LLM provider credentials (Gemini API key, Vertex AI, or OpenAI)
+#   - LLM provider credentials (OpenAI, Gemini API key, or Vertex AI)
 #
 # Usage:
-#   # Gemini API (default)
+#   # OpenAI (default)
+#   export OPENAI_API_KEY=sk-...
+#   ./scripts/deploy-to-kind.sh
+#
+#   # Gemini API
 #   export GEMINI_API_KEY=your-api-key
 #   ./scripts/deploy-to-kind.sh
 #
@@ -17,10 +21,6 @@
 #   export VERTEXAI_PROJECT_ID=my-project
 #   export VERTEX_AI_LOCATION=us-central1
 #   export GCP_CREDENTIALS_PATH=/path/to/credentials.json
-#   ./scripts/deploy-to-kind.sh
-#
-#   # OpenAI
-#   export OPENAI_API_KEY=sk-...
 #   ./scripts/deploy-to-kind.sh
 
 set -euo pipefail
@@ -54,12 +54,19 @@ echo "==> Creating namespace ${NAMESPACE}..."
 ${KUBECTL} create namespace "${NAMESPACE}" --dry-run=client -o yaml | ${KUBECTL} apply -f -
 
 echo "==> Creating LLM provider credentials secret..."
-if [[ -n "${GEMINI_API_KEY:-}" ]]; then
+if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+    ${KUBECTL} create secret generic llm-provider-credentials \
+        -n "${NAMESPACE}" \
+        --from-literal=OPENAI_API_KEY="${OPENAI_API_KEY}" \
+        --dry-run=client -o yaml | ${KUBECTL} apply -f -
+    echo "    Using OpenAI provider (kind default)"
+elif [[ -n "${GEMINI_API_KEY:-}" ]]; then
     ${KUBECTL} create secret generic llm-provider-credentials \
         -n "${NAMESPACE}" \
         --from-literal=GEMINI_API_KEY="${GEMINI_API_KEY}" \
         --dry-run=client -o yaml | ${KUBECTL} apply -f -
     echo "    Using Gemini API provider"
+    echo "    NOTE: Update the run.yaml ConfigMap to use the Gemini provider block"
 elif [[ -n "${GCP_CREDENTIALS_PATH:-}" && -f "${GCP_CREDENTIALS_PATH}" ]]; then
     ${KUBECTL} create secret generic llm-provider-credentials \
         -n "${NAMESPACE}" \
@@ -69,15 +76,8 @@ elif [[ -n "${GCP_CREDENTIALS_PATH:-}" && -f "${GCP_CREDENTIALS_PATH}" ]]; then
         --dry-run=client -o yaml | ${KUBECTL} apply -f -
     echo "    Using Vertex AI provider"
     echo "    NOTE: Update the run.yaml ConfigMap to use the Vertex AI provider block"
-elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
-    ${KUBECTL} create secret generic llm-provider-credentials \
-        -n "${NAMESPACE}" \
-        --from-literal=OPENAI_API_KEY="${OPENAI_API_KEY}" \
-        --dry-run=client -o yaml | ${KUBECTL} apply -f -
-    echo "    Using OpenAI provider"
-    echo "    NOTE: Update the run.yaml ConfigMap to use the OpenAI provider block"
 else
-    echo "WARNING: No LLM credentials found. Set GEMINI_API_KEY, GCP_CREDENTIALS_PATH, or OPENAI_API_KEY."
+    echo "WARNING: No LLM credentials found. Set OPENAI_API_KEY, GEMINI_API_KEY, or GCP_CREDENTIALS_PATH."
     echo "         The stack will start but inference requests will fail."
 fi
 

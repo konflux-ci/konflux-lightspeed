@@ -32,10 +32,12 @@ services:
       start_period: 10s
 
   kod:
-    # KOD (Konflux Offline Documentation) — MCP server, image built by Konflux CI.
-    # Pinned by digest for reproducibility (matches the other images here).
-    # Bump this digest manually to pick up fresh docs.
-    image: quay.io/redhat-user-workloads-stage/kod-tenant/kod@sha256:42b3d227f8c6d41ed4efa5bf9327d842e1de7adfa9514f065d82c33e1b2f83de
+    # KOD (Konflux Offline Documentation) — MCP server, rebuilt daily in Konflux CI.
+    # Track the :latest tag so local dev picks up the newest daily build (fresh docs
+    # + code). pull_policy: always re-checks the registry on each `up` (fast when the
+    # local image already matches the published digest).
+    image: quay.io/redhat-user-workloads-stage/kod-tenant/kod:latest
+    pull_policy: always
     container_name: konflux-lightspeed-kod
     ports:
       - "127.0.0.1:8000:8000"
@@ -56,15 +58,25 @@ services:
       start_period: 20s
 
   lightspeed-stack:
-    # lightspeed-stack 0.6.2
-    image: quay.io/lightspeed-core/lightspeed-stack@sha256:1317d65e10c34183de36144a8c9effc81a28aacae62f5ba6be448b60ff6cc10d
+    # lightspeed-stack 0.7.0
+    image: quay.io/lightspeed-core/lightspeed-stack@sha256:159f3fb24ed16f026b1a8b9dc035ae122ae8d9897ed2403e4114dce070932ba1
     container_name: konflux-lightspeed-stack
     env_file: ../.env
+    # Redirect unified-mode synthesis to writable /tmp (see deploy/base/deployment.yaml).
+    command: ["--synthesized-config-output", "/tmp/ogx/run.yaml"]
+    # Mirror the production securityContext (readOnlyRootFilesystem: true) so local
+    # dev catches read-only-filesystem issues. Only /tmp is writable.
+    read_only: true
+    tmpfs:
+      - /tmp
     environment:
       LIGHTSPEED_STACK_CONFIG_PATH: /app-root/lightspeed-stack.yaml
       LIGHTSPEED_STACK_LOG_LEVEL: DEBUG
+      # lightspeed-stack 0.7 enables OpenTelemetry tracing by default, which
+      # requires OTEL_ANONYMIZATION_SECRET. Disable the SDK for local dev.
+      OTEL_SDK_DISABLED: "true"
       # Vertex AI auth (only needed for the remote::vertexai provider). Re-enable
-      # this + the two Vertex volume mounts below when switching back to Vertex.
+      # this + the two Vertex volume mounts below when using the Vertex provider.
       # GOOGLE_APPLICATION_CREDENTIALS: /etc/gcp/credentials.json
       # Writable path for llama-stack internal SQLite registry
       # (workaround for https://github.com/llamastack/llama-stack/issues/4896)

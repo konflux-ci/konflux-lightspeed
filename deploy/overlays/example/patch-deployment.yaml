@@ -18,15 +18,22 @@ spec:
                 secretKeyRef:
                   name: lightspeed-postgres
                   key: password
-            - name: VERTEXAI_PROJECT_ID
+            - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: llm-provider-credentials
-                  key: vertexai-project-id
-            - name: VERTEX_AI_LOCATION
-              valueFrom:
-                secretKeyRef:
-                  name: llm-provider-credentials
-                  key: vertex-ai-location
-            - name: GOOGLE_APPLICATION_CREDENTIALS
-              value: /app-root/secrets/credentials.json
+                  key: openai-api-key
+            # To use Google Vertex AI instead, replace OPENAI_API_KEY above with the
+            # following (and switch the provider blocks in patch-run-config.yaml):
+            # - name: VERTEXAI_PROJECT_ID
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: llm-provider-credentials
+            #       key: vertexai-project-id
+            # - name: VERTEX_AI_LOCATION
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: llm-provider-credentials
+            #       key: vertex-ai-location
+            # - name: GOOGLE_APPLICATION_CREDENTIALS
+            #   value: /app-root/secrets/credentials.json

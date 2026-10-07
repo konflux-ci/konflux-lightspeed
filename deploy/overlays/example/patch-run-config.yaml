@@ -8,30 +8,41 @@ data:
     version: 2
     distro_name: konflux-lightspeed
     external_providers_dir: ${env.EXTERNAL_PROVIDERS_DIR:=~/.llama/providers.d}
+    # RAG is served by KOD over MCP (tool_runtime). The vector_io + files providers
+    # are kept only because the responses (inline::builtin) provider requires them;
+    # the embedding stack (sentence-transformers / file_search / vector_stores) is
+    # omitted, so no embedding model is downloaded at runtime.
     apis:
-      - agents
+      - responses
       - conversations
       - files
-      - file_processors
       - inference
-      - safety
       - tool_runtime
       - vector_io
     providers:
       inference:
-        - provider_id: google-vertex
-          provider_type: remote::vertexai
+        - provider_id: openai
+          provider_type: remote::openai
           config:
-            project: ${env.VERTEXAI_PROJECT_ID}
-            location: ${env.VERTEX_AI_LOCATION}
-      agents:
+            api_key: ${env.OPENAI_API_KEY}
+        # NOTE: when switching providers, also update inference.default_provider and
+        # inference.default_model in patch-lightspeed-stack-config.yaml to match.
+        # To use Google Vertex AI instead, replace the openai provider above with:
+        # - provider_id: google-vertex
+        #   provider_type: remote::vertexai
+        #   config:
+        #     project: ${env.VERTEXAI_PROJECT_ID}
+        #     location: ${env.VERTEX_AI_LOCATION}
+        # To use the Google Gemini API (AI Studio key) instead:
+        # - provider_id: gemini
+        #   provider_type: remote::gemini
+        #   config:
+        #     api_key: ${env.GEMINI_API_KEY}
+      responses:
         - provider_id: meta-reference
-          provider_type: inline::meta-reference
+          provider_type: inline::builtin
           config:
             persistence:
-              agent_state:
-                backend: kv_default
-                namespace: agents
               responses:
                 backend: sql_default
                 table_name: agents_responses
@@ -43,18 +54,9 @@ data:
             metadata_store:
               table_name: files_metadata
               backend: sql_default
-      file_processors:
-        - provider_id: pypdf
-          provider_type: inline::pypdf
-          config:
-            default_chunk_size_tokens: 800
-            default_chunk_overlap_tokens: 400
       tool_runtime:
         - provider_id: model-context-protocol
           provider_type: remote::model-context-protocol
-          config: {}
-        - provider_id: rag-runtime
-          provider_type: inline::rag-runtime
           config: {}
       vector_io:
         - provider_id: faiss
@@ -94,18 +96,30 @@ data:
           table_name: openai_conversations
           backend: sql_default
         prompts:
-          namespace: prompts
-          backend: kv_default
+          table_name: prompts
+          backend: sql_default
         connectors:
-          namespace: connectors
-          backend: kv_default
+          table_name: connectors
+          backend: sql_default
     registered_resources:
       models:
         - metadata: {}
-          model_id: publishers/google/models/gemini-3.1-flash-lite
-          provider_id: google-vertex
-          provider_model_id: publishers/google/models/gemini-3.1-flash-lite
+          model_id: gpt-4o-mini
+          provider_id: openai
+          provider_model_id: gpt-4o-mini
           model_type: llm
+        # When using Vertex AI instead:
+        # - metadata: {}
+        #   model_id: publishers/google/models/gemini-3.1-flash-lite
+        #   provider_id: google-vertex
+        #   provider_model_id: publishers/google/models/gemini-3.1-flash-lite
+        #   model_type: llm
+        # When using the Gemini API instead:
+        # - metadata: {}
+        #   model_id: models/gemini-3.1-flash-lite
+        #   provider_id: gemini
+        #   provider_model_id: models/gemini-3.1-flash-lite
+        #   model_type: llm
       vector_stores: []
     server:
       port: 8321

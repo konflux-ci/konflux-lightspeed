@@ -16,9 +16,10 @@ data:
       tls_config:
         tls_certificate_path: /app-root/tls/tls.crt
         tls_key_path: /app-root/tls/tls.key
-    llama_stack:
+    ogx:
       use_as_library_client: true
-      library_client_config_path: /app-root/run.yaml
+      config:
+        profile: /app-root/run.yaml
     authentication:
       module: jwk-token
       skip_for_health_probes: true
@@ -48,8 +49,8 @@ data:
         password: ${env.POSTGRES_PASSWORD}
         ssl_mode: require
     inference:
-      default_model: publishers/google/models/gemini-3.1-flash-lite
-      default_provider: google-vertex
+      default_model: gpt-4o-mini
+      default_provider: openai
     customization:
       system_prompt_path: /app-root/system-prompt.txt
     user_data_collection:

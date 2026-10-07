@@ -9,6 +9,6 @@ patches:
 images:
   - name: quay.io/lightspeed-core/lightspeed-stack
     newName: quay.io/lightspeed-core/lightspeed-stack
-    # lightspeed-stack 0.6.2
-    digest: sha256:1317d65e10c34183de36144a8c9effc81a28aacae62f5ba6be448b60ff6cc10d
+    # lightspeed-stack 0.7.0
+    digest: sha256:159f3fb24ed16f026b1a8b9dc035ae122ae8d9897ed2403e4114dce070932ba1
 namespace: konflux-lightspeed

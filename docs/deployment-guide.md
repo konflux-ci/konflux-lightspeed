@@ -20,7 +20,7 @@ Browser → Konflux UI (nginx) → lightspeed-stack Service (ClusterIP)
 - [cert-manager](https://cert-manager.io/) for TLS certificate provisioning
 - A PostgreSQL instance (managed or self-hosted)
 - An SSO/OIDC provider with a JWKS endpoint
-- LLM provider credentials (Vertex AI, OpenAI, or other supported provider)
+- LLM provider credentials (OpenAI, Vertex AI, or other supported provider)
 
 ## Deployment Options
 
@@ -40,7 +40,8 @@ patches:
 images:
   - name: quay.io/lightspeed-core/lightspeed-stack
     newName: quay.io/lightspeed-core/lightspeed-stack
-    newTag: <pinned-image-tag>
+    # Pin by digest (see deploy/overlays/ for the current pin)
+    digest: sha256:<pinned-image-digest>
 namespace: konflux-lightspeed
 ```
 
@@ -88,7 +89,15 @@ kubectl create secret generic lightspeed-postgres \
 
 ### LLM Provider Credentials
 
-For Vertex AI:
+The provider is configured per deployment. For OpenAI:
+
+```bash
+kubectl create secret generic llm-provider-credentials \
+  -n konflux-lightspeed \
+  --from-literal=openai-api-key='<your-openai-api-key>'
+```
+
+To use Google Vertex AI instead (switch the provider blocks in your run-config / deployment patches accordingly):
 
 ```bash
 kubectl create secret generic llm-provider-credentials \
