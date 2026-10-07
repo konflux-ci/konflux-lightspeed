@@ -13,9 +13,10 @@ data:
       workers: 1
       color_log: true
       access_log: true
-    llama_stack:
+    ogx:
       use_as_library_client: true
-      library_client_config_path: /app-root/run.yaml
+      config:
+        profile: /app-root/run.yaml
     authentication:
       module: noop
       skip_for_health_probes: true
@@ -40,8 +41,8 @@ data:
         ssl_mode: disable
         gss_encmode: disable
     inference:
-      default_model: models/gemini-3.1-flash-lite
-      default_provider: gemini
+      default_model: gpt-4o-mini
+      default_provider: openai
     customization:
       system_prompt_path: /app-root/system-prompt.txt
     user_data_collection:

@@ -30,6 +30,16 @@ spec:
               value: lightspeed
             - name: POSTGRES_PASSWORD
               value: lightspeed
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: llm-provider-credentials
+                  key: OPENAI_API_KEY
+                  optional: true
+            # Also expose the Gemini key (both optional) so switching the run-config
+            # provider block to Gemini works without editing this file. Vertex also
+            # needs the credentials.json mount + GOOGLE_APPLICATION_CREDENTIALS, which
+            # this kind overlay does not wire.
             - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef:

@@ -51,16 +51,16 @@ Run the Konflux Lightspeed backend locally using podman-compose.
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `postgres` | 5432 | PostgreSQL for conversation persistence and Llama Stack storage |
+| `postgres` | 5432 | PostgreSQL for conversation persistence and OGX storage |
 | `kod` | 8000 | KOD (Konflux Offline Documentation) MCP server — serves `search_knowledge` and `get_document` for RAG |
-| `lightspeed-stack` | 8080 | Lightspeed-stack API server with embedded Llama Stack (library mode) |
+| `lightspeed-stack` | 8080 | Lightspeed-stack API server with embedded OGX (library mode) |
 
 ## Configuration Files
 
 All configuration lives in `local/config/`:
 
 - **`lightspeed-stack.yaml`** — Service configuration (auth, conversation cache, inference defaults)
-- **`run.yaml`** — Llama Stack configuration (LLM provider, storage backends, models)
+- **`run.yaml`** — OGX configuration (LLM provider, storage backends, models)
 - **`system-prompt.txt`** — Konflux-specific system prompt
 
 Changes to these files take effect after restarting lightspeed-stack:
@@ -73,11 +73,11 @@ podman-compose restart lightspeed-stack
 
 Vertex AI requires a GCP service account with `roles/aiplatform.user`.
 
-> **Note:** RAG (tool calling) on Vertex requires lightspeed-stack **0.7+**. The
-> image pinned in `local/podman-compose.yml` is 0.6.2, which drops the Gemini 3
-> `thought_signature` and returns HTTP 400 on tool replay — so KOD-backed queries
-> will fail on this stack. Use the default OpenAI provider for RAG; switch to Vertex
-> only for non-RAG testing, or once the pinned image is on 0.7 (OGX-based).
+> **Note:** RAG (tool calling) on Vertex requires lightspeed-stack **0.7+**, which
+> is now the pinned image in `local/podman-compose.yml`. On 0.6.x, Gemini 3
+> `thought_signature` values were dropped and tool replay returned HTTP 400 — so
+> KOD-backed queries failed; 0.7 (OGX-based) fixes this. OpenAI remains the default
+> local provider.
 
 1. Create a service account and download a key:
 
@@ -168,23 +168,23 @@ Deploy konflux-lightspeed into a local Konflux kind instance for integration tes
 
 - A running Konflux kind cluster (via [konflux-ci](https://github.com/konflux-ci/konflux-ci) `./scripts/deploy-local.sh`)
 - `kubectl`, `kustomize`, and `kind` installed
-- LLM provider credentials (Gemini API key, Vertex AI, or OpenAI)
+- LLM provider credentials (OpenAI, Gemini API key, or Vertex AI)
 
 ### Deploy
 
 ```bash
-# Gemini API (default)
+# OpenAI (default)
+export OPENAI_API_KEY=sk-...
+./scripts/deploy-to-kind.sh
+
+# Or Google Gemini API (also switch the provider block + inference defaults in the run-config and lightspeed-stack ConfigMaps)
 export GEMINI_API_KEY=your-gemini-api-key-here
 ./scripts/deploy-to-kind.sh
 
-# Or Vertex AI
+# Or Vertex AI (also switch the provider block + inference defaults in the run-config and lightspeed-stack ConfigMaps)
 export VERTEXAI_PROJECT_ID=your-gcp-project-id
 export VERTEX_AI_LOCATION=us-central1
 export GCP_CREDENTIALS_PATH=/path/to/google-credentials.json
-./scripts/deploy-to-kind.sh
-
-# Or OpenAI
-export OPENAI_API_KEY=sk-...
 ./scripts/deploy-to-kind.sh
 ```
 

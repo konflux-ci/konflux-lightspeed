@@ -1,13 +1,15 @@
 version: 2
 distro_name: konflux-lightspeed-local
 external_providers_dir: ${env.EXTERNAL_PROVIDERS_DIR:=~/.llama/providers.d}
+# RAG is served by KOD over MCP (tool_runtime). The vector_io + files providers
+# are kept only because the responses (inline::builtin) provider requires them; the
+# embedding stack (sentence-transformers / file_search / vector_stores) is omitted,
+# so no embedding model is downloaded at runtime.
 apis:
-  - agents
+  - responses
   - conversations
   - files
-  - file_processors
   - inference
-  - safety
   - tool_runtime
   - vector_io
 providers:
@@ -15,12 +17,11 @@ providers:
     # OpenAI — active for the local KOD RAG test. Sidesteps the Gemini 3
     # thought_signature defect entirely (remote::gemini drops it via Google's
     # OpenAI-compat endpoint; remote::vertexai hit it too on llama-stack 0.6.0).
-    # Fixed upstream in lightspeed-stack 0.7 (OGX-based); revert to Vertex then.
     - provider_id: openai
       provider_type: remote::openai
       config:
         api_key: ${env.OPENAI_API_KEY}
-    # Alternative: Google Vertex AI (production path). Needs GCP roles/aiplatform.user.
+    # Alternative: Google Vertex AI. Needs GCP roles/aiplatform.user.
     # On lightspeed-stack 0.7+ this works out of the box; on 0.6.x it also needs a
     # local converter override for the Gemini 3 thought_signature round-trip.
     # - provider_id: google-vertex
@@ -33,14 +34,11 @@ providers:
     #   provider_type: remote::gemini
     #   config:
     #     api_key: ${env.GEMINI_API_KEY}
-  agents:
+  responses:
     - provider_id: meta-reference
-      provider_type: inline::meta-reference
+      provider_type: inline::builtin
       config:
         persistence:
-          agent_state:
-            backend: kv_default
-            namespace: agents
           responses:
             backend: sql_default
             table_name: agents_responses
@@ -52,19 +50,13 @@ providers:
         metadata_store:
           table_name: files_metadata
           backend: sql_default
-  file_processors:
-    - provider_id: pypdf
-      provider_type: inline::pypdf
-      config:
-        default_chunk_size_tokens: 800
-        default_chunk_overlap_tokens: 400
   tool_runtime:
     - provider_id: model-context-protocol
       provider_type: remote::model-context-protocol
       config: {}
-    - provider_id: rag-runtime
-      provider_type: inline::rag-runtime
-      config: {}
+  # Required by the responses (inline::builtin) provider. No embedding model is
+  # configured (no sentence-transformers / vector_stores), so nothing is downloaded
+  # at runtime — RAG is served by KOD over MCP.
   vector_io:
     - provider_id: faiss
       provider_type: inline::faiss
@@ -94,11 +86,11 @@ storage:
       table_name: openai_conversations
       backend: sql_default
     prompts:
-      namespace: prompts
-      backend: kv_default
+      table_name: prompts
+      backend: sql_default
     connectors:
-      namespace: connectors
-      backend: kv_default
+      table_name: connectors
+      backend: sql_default
 # Model names must use full SDK-native format for Vertex AI
 # See: https://github.com/meta-llama/llama-stack/pull/5169
 registered_resources:

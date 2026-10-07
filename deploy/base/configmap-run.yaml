@@ -8,13 +8,15 @@ data:
     version: 2
     distro_name: konflux-lightspeed
     external_providers_dir: ${env.EXTERNAL_PROVIDERS_DIR:=~/.llama/providers.d}
+    # RAG is served by KOD over MCP (tool_runtime). The vector_io + files providers
+    # are kept only because the responses (inline::builtin) provider requires them;
+    # the embedding stack (sentence-transformers / file_search / vector_stores) is
+    # omitted, so no embedding model is downloaded at runtime.
     apis:
-      - agents
+      - responses
       - conversations
       - files
-      - file_processors
       - inference
-      - safety
       - tool_runtime
       - vector_io
     providers:
@@ -22,14 +24,11 @@ data:
         - provider_id: PLACEHOLDER_PROVIDER_ID
           provider_type: PLACEHOLDER_PROVIDER_TYPE
           config: {}
-      agents:
+      responses:
         - provider_id: meta-reference
-          provider_type: inline::meta-reference
+          provider_type: inline::builtin
           config:
             persistence:
-              agent_state:
-                backend: kv_default
-                namespace: agents
               responses:
                 backend: sql_default
                 table_name: agents_responses
@@ -41,18 +40,9 @@ data:
             metadata_store:
               table_name: files_metadata
               backend: sql_default
-      file_processors:
-        - provider_id: pypdf
-          provider_type: inline::pypdf
-          config:
-            default_chunk_size_tokens: 800
-            default_chunk_overlap_tokens: 400
       tool_runtime:
         - provider_id: model-context-protocol
           provider_type: remote::model-context-protocol
-          config: {}
-        - provider_id: rag-runtime
-          provider_type: inline::rag-runtime
           config: {}
       vector_io:
         - provider_id: faiss
@@ -92,11 +82,11 @@ data:
           table_name: openai_conversations
           backend: sql_default
         prompts:
-          namespace: prompts
-          backend: kv_default
+          table_name: prompts
+          backend: sql_default
         connectors:
-          namespace: connectors
-          backend: kv_default
+          table_name: connectors
+          backend: sql_default
     registered_resources:
       models:
         - metadata: {}

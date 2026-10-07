@@ -28,9 +28,66 @@ validate_config() {
     fi
   done
 
-  # llama_stack must have either use_as_library_client or url
-  if ! echo "$config" | yq -e '.llama_stack.use_as_library_client // .llama_stack.url' >/dev/null 2>&1; then
-    echo "  FAIL: missing required field: .llama_stack (need use_as_library_client or url)"
+  # ogx must have either use_as_library_client or url
+  if ! echo "$config" | yq -e '.ogx.use_as_library_client // .ogx.url' >/dev/null 2>&1; then
+    echo "  FAIL: missing required field: .ogx (need use_as_library_client or url)"
+    rc=1
+  fi
+
+  # Unified library mode requires a config.profile path. library_client_config_path
+  # is deprecated and removed in lightspeed-stack 0.8.
+  if [[ "$(echo "$config" | yq '.ogx.use_as_library_client' 2>/dev/null)" == "true" ]]; then
+    if [[ -z "$(echo "$config" | yq '.ogx.config.profile // ""' 2>/dev/null)" ]]; then
+      echo "  FAIL: .ogx.use_as_library_client is true but .ogx.config.profile is not set"
+      rc=1
+    fi
+  fi
+
+  return $rc
+}
+
+# run.yaml must enable the responses API and provider — query handling on
+# lightspeed-stack 0.7+ (OGX) depends on it.
+validate_run_config() {
+  local label="$1"
+  local run="$2"
+  local rc=0
+
+  if [[ -z "$run" || "$run" == "null" ]]; then
+    echo "  FAIL: run.yaml not found"
+    return 1
+  fi
+
+  if ! echo "$run" | yq -e '.apis[] | select(. == "responses")' >/dev/null 2>&1; then
+    echo "  FAIL: run.yaml apis is missing 'responses'"
+    rc=1
+  fi
+  if ! echo "$run" | yq -e '.providers.responses' >/dev/null 2>&1; then
+    echo "  FAIL: run.yaml providers.responses is not defined"
+    rc=1
+  fi
+
+  return $rc
+}
+
+# A container with a read-only root filesystem must redirect unified-mode library
+# synthesis to a writable path via --synthesized-config-output, otherwise it
+# crashes at startup writing ./.generated/run.yaml under the read-only workdir.
+validate_deployment() {
+  local label="$1"
+  local built="$2"
+  local rc=0
+
+  local offenders
+  offenders=$(echo "$built" | yq '
+    select(.kind == "Deployment")
+    | .spec.template.spec.containers[]
+    | select(.securityContext.readOnlyRootFilesystem == true)
+    | select((.args // []) | contains(["--synthesized-config-output"]) | not)
+    | .name' 2>/dev/null || true)
+
+  if [[ -n "$offenders" && "$offenders" != "null" ]]; then
+    echo "  FAIL: read-only container(s) missing --synthesized-config-output arg: ${offenders//$'\n'/, }"
     rc=1
   fi
 
@@ -61,21 +118,39 @@ for d in "${REPO_ROOT}"/deploy/overlays/*/; do
     continue
   fi
 
-  if ! validate_config "$label" "$config"; then
-    rc=1
-  else
+  ok=1
+  validate_config "$label" "$config" || ok=0
+
+  run=$(echo "$built" | yq 'select(.kind == "ConfigMap" and .metadata.name == "run-config") | .data["run.yaml"]')
+  validate_run_config "$label" "$run" || ok=0
+
+  validate_deployment "$label" "$built" || ok=0
+
+  if [[ "$ok" -eq 1 ]]; then
     echo "  PASS"
+  else
+    rc=1
   fi
 done
 
-# Validate local config (standalone file, not in a ConfigMap)
+# Validate local config (standalone files, not in a ConfigMap)
 LOCAL_CONFIG="${REPO_ROOT}/local/config/lightspeed-stack.yaml"
+LOCAL_RUN="${REPO_ROOT}/local/config/run.yaml"
 if [[ -f "$LOCAL_CONFIG" ]]; then
-  echo "==> Validating config in local/config/lightspeed-stack.yaml..."
-  if ! validate_config "local" "$(cat "$LOCAL_CONFIG")"; then
-    rc=1
+  echo "==> Validating config in local/config..."
+  ok=1
+  validate_config "local" "$(cat "$LOCAL_CONFIG")" || ok=0
+  if [[ -f "$LOCAL_RUN" ]]; then
+    validate_run_config "local" "$(cat "$LOCAL_RUN")" || ok=0
   else
+    # The local config's ogx.config.profile points at run.yaml, so a missing
+    # file is a failure, not a skip.
+    validate_run_config "local" "" || ok=0
+  fi
+  if [[ "$ok" -eq 1 ]]; then
     echo "  PASS"
+  else
+    rc=1
   fi
 fi
 

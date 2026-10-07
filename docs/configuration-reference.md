@@ -63,9 +63,19 @@ Registers external [MCP](https://modelcontextprotocol.io/) servers whose tools t
 | `provider_id` | Tool runtime provider (`model-context-protocol`) |
 | `url` | MCP endpoint URL (e.g., `http://kod:8000/mcp`) |
 
+#### Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `OTEL_SDK_DISABLED` | Set to `"true"` to disable OpenTelemetry tracing. On 0.7+ tracing is enabled by default and requires `OTEL_ANONYMIZATION_SECRET`; we disable it since no OTel collector is deployed. |
+
+#### Unified-mode synthesis (read-only filesystem)
+
+In unified library mode, lightspeed-stack 0.7 synthesizes a `run.yaml` at startup and, by default, writes it to `./.generated/run.yaml` under the read-only image workdir — which crashes under `readOnlyRootFilesystem: true`. The base Deployment passes `--synthesized-config-output /tmp/ogx/run.yaml` (container args) to redirect it to the writable `/tmp` volume. Setting the matching env var is **not** sufficient — the parent process clears it unless the CLI flag is present. Keep this arg in any overlay that uses a read-only root filesystem.
+
 ## run.yaml
 
-Llama Stack configuration. Controls the LLM provider, storage backends, and model registration.
+OGX configuration (OGX replaced Llama Stack in lightspeed-stack 0.7). Controls the LLM provider, storage backends, and model registration.
 
 ### Required APIs
 
@@ -73,12 +83,10 @@ All APIs below must be enabled for lightspeed-stack to function:
 
 ```yaml
 apis:
-  - agents
+  - responses
   - conversations
   - files
-  - file_processors
   - inference
-  - safety
   - tool_runtime
   - vector_io
 ```
@@ -125,20 +133,24 @@ providers:
         location: ${env.VERTEX_AI_LOCATION}
 ```
 
-Requires a GCP service account with `roles/aiplatform.user` and `GOOGLE_APPLICATION_CREDENTIALS` pointing to the service account JSON. Model IDs use the `publishers/google/models/` prefix (e.g., `publishers/google/models/gemini-3.1-flash-lite`). **RAG (tool calling) on Vertex requires lightspeed-stack 0.7+**: on 0.6.x (including the 0.6.2 image pinned for local dev), Gemini 3 `thought_signature` values are dropped and tool replay returns HTTP 400, so KOD-backed queries fail. Fixed upstream in 0.7 (OGX-based).
+Requires a GCP service account with `roles/aiplatform.user` and `GOOGLE_APPLICATION_CREDENTIALS` pointing to the service account JSON. Model IDs use the `publishers/google/models/` prefix (e.g., `publishers/google/models/gemini-3.1-flash-lite`). RAG (tool calling) on Vertex requires lightspeed-stack 0.7+ (now pinned); on 0.6.x, Gemini 3 `thought_signature` values were dropped and tool replay returned HTTP 400, so KOD-backed queries failed. Fixed upstream in 0.7 (OGX-based).
 
 ### Other Required Providers
 
+RAG is served by KOD over MCP (the `model-context-protocol` tool_runtime provider).
+The `responses` (`inline::builtin`) provider has hard dependencies on the `files`
+and `vector_io` providers, so those are included. The native OGX RAG stack
+(`sentence-transformers` embeddings, `file_search`, and the top-level
+`vector_stores` block) is intentionally omitted — keeping it would pull a large
+embedding model at runtime, which the read-only deployment filesystem cannot cache.
+
 ```yaml
 providers:
-  agents:
+  responses:
     - provider_id: meta-reference
-      provider_type: inline::meta-reference
+      provider_type: inline::builtin
       config:
         persistence:
-          agent_state:
-            backend: kv_default
-            namespace: agents
           responses:
             backend: sql_default
             table_name: agents_responses
@@ -150,18 +162,9 @@ providers:
         metadata_store:
           table_name: files_metadata
           backend: sql_default
-  file_processors:
-    - provider_id: pypdf
-      provider_type: inline::pypdf
-      config:
-        default_chunk_size_tokens: 800
-        default_chunk_overlap_tokens: 400
   tool_runtime:
     - provider_id: model-context-protocol
       provider_type: remote::model-context-protocol
-      config: {}
-    - provider_id: rag-runtime
-      provider_type: inline::rag-runtime
       config: {}
   vector_io:
     - provider_id: faiss
@@ -208,11 +211,11 @@ storage:
       table_name: openai_conversations
       backend: sql_default
     prompts:
-      namespace: prompts
-      backend: kv_default
+      table_name: prompts
+      backend: sql_default
     connectors:
-      namespace: connectors
-      backend: kv_default
+      table_name: connectors
+      backend: sql_default
 ```
 
 ### Model Registration
